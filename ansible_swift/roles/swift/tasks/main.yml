@@ -1,0 +1,314 @@
+---
+# tasks file for swift
+
+- name: judge swift_fdisk exits
+  shell: df -h |grep /srv/node/hdd01
+  register: swift_fdisk
+  ignore_errors: True
+
+- name: umount /srv/node/hdd01
+  shell: umount /srv/node/hdd01
+  register: swift_umount
+  when: swift_fdisk is succeeded
+
+- name: judge /srv/node/hdd01  exits
+  stat: 
+    path: /srv/node/hdd01
+  register: swift_dictionary
+  ignore_errors: True
+
+- name: mkdir /srv/node/hdd01
+  shell: mkdir -p /srv/node/hdd01
+  when: swift_dictionary.stat.exists == False
+  register: swift_dir
+
+- name: parted
+  shell: 'parted -s {{ disk_type }}  mklabel gpt'
+  when: swift_fdisk is failed 
+  register: parted
+
+- name: mkfs
+  shell: 'mkfs.xfs -f -L hdd01 {{ disk_type }}'
+  when: swift_umount is succeeded and parted is succeeded
+  register: mkfs
+
+- name: mount
+  shell: 'mount -t xfs -o noatime,nodiratime,logbufs=8 -L hdd01 /srv/node/hdd01'
+  when: mkfs is succeeded and mkfs is succeeded
+  register: mount
+
+- name: judge /etc/rc.local exits
+  shell: grep '/srv/node/hdd01' /etc/rc.local
+  register: swift_rclocal
+  ignore_errors: True
+
+- name: echo /etc/rc.local
+  shell: chmod u+x /etc/rc.d/rc.local;echo 'mount -t xfs -o noatime,nodiratime,logbufs=8 -L hdd01 /srv/node/hdd01' >> /etc/rc.d/rc.local
+  when: swift_rclocal is failed
+
+- name: judge /etc/security/limits.conf
+  shell: grep -E $'        soft   nproc  65536\n*        hard   nproc  65536\n*        soft   nofile  655350\n*        hard   nofile  655350' /etc/security/limits.conf
+  register: swift_limits
+  ignore_errors: True
+
+- name: echo /etc/security/limits.conf
+  shell: echo '*        soft   nproc  65536\n* *        hard   nproc  65536\n* *        soft   nofile  655350\n* *        hard   nofile  655350\n*' >> /etc/security/limits.conf;ulimit -n 65536
+  when: swift_limits is failed
+
+- name: judge /etc/locale.conf
+  shell: grep 'en_US.UTF-8' /etc/locale.conf
+  register: swift_locale
+  ignore_errors: True
+
+- name: echo /etc/locale.conf
+  shell: echo 'LANG="en_US.UTF-8"' >> /etc/locale.conf
+  when: swift_locale is failed
+
+- name: judge /etc/yum.repos.d/notused
+  stat:
+    path: /etc/yum.repos.d/notused
+  register: swift_yum
+  ignore_errors: True
+
+- name: unarchive yum
+  unarchive: src=swift-package-centos7.5.tar.gz dest=/tmp/
+  when: swift_yum.stat.exists == False
+
+- name : mkdir /etc/yum.repos.d/notused
+  shell: mkdir -p /etc/yum.repos.d/notused
+  when: swift_yum.stat.exists == False
+
+- name: set yum
+  shell: mv -f /etc/yum.repos.d/*.repo notused/;cp /tmp/swift-config/CentOS-7.repo /etc/yum.repos.d;\cp /tmp/yum-cache/* /var/cache/yum/x86_64/7/ -pR
+  when: swift_yum.stat.exists == False
+  register: swift_setyum
+
+- name: installyum
+  yum: name={{ item }}
+  with_items: 
+  - xfsprogs
+  - rsync
+  - python-swiftclient
+  - memcached
+  - logrotate
+  - openstack-swift-account
+  - openstack-swift-container
+  - openstack-swift-object
+  - openstack-swift-proxy
+  - openstack-swift-doc
+  - python
+  when: swift_setyum is succeeded
+  register: swift_yuminstall
+
+- name: /usr/lib/python2.7/site-packages/enum* exists
+  shell: ls /usr/lib/python2.7/site-packages/enum*
+  register: site_packages_enum
+  ignore_errors: True
+  
+- name: rm /usr/lib/python2.7/site-packages/enum* 
+  shell: rm /usr/lib/python2.7/site-packages/enum* -rf
+  when: site_packages_enum is succeeded
+
+- name: /usr/lib/python2.7/site-packages/six* exists
+  shell: ls /usr/lib/python2.7/site-packages/six*
+  register: site_packages_six
+  ignore_errors: True
+  
+- name: rm /usr/lib/python2.7/site-packages/six* 
+  shell: rm /usr/lib/python2.7/site-packages/six* -rf
+  when: site_packages_six is succeeded
+
+- name: /usr/lib/python2.7/site-packages/eventlet* exists
+  shell: ls /usr/lib/python2.7/site-packages/eventlet*
+  register: site_packages_eventlet
+  ignore_errors: True
+  
+- name: rm /usr/lib/python2.7/site-packages/eventlet* 
+  shell: rm /usr/lib/python2.7/site-packages/eventlet* -rf
+  when: site_packages_eventlet is succeeded
+
+- name: /tmp/site-packages/ exists
+  stat:
+    path: /tmp/site-packages/
+  register: swift_tmp
+  ignore_errors: True
+
+- name: unarchive swift-package
+  unarchive: src=swift-package-centos7.5.tar.gz dest=/tmp/
+  when: swift_tmp.stat.exists == False
+  register: swift_unarchive
+
+- name: site-packages replace
+  shell: cp /tmp/site-packages/enum*  /usr/lib/python2.7/site-packages/ -pR;cp /tmp/site-packages/six*  /usr/lib/python2.7/site-packages/ -pR;cp /tmp/site-packages/eventlet* /usr/lib/python2.7/site-packages/ -pR
+  when: swift_unarchive is succeeded
+  register: swift_sitepackages
+
+- name: /usr/local/bin/ exists
+  stat:
+    path: /usr/local/bin/
+  register: swift_swauth
+  when: swift_sitepackages is succeeded
+  ignore_errors: True
+
+- name: swauth_cert
+  shell: cp /tmp/swauth/bin/swauth-* /usr/local/bin/
+  when: swift_swauth.stat.exists == False
+
+- name: /usr/lib/python2.7/site-packages/swauth* exists
+  shell: ls /usr/lib/python2.7/site-packages/swauth*
+  register: swift_sitepackages_swauth
+  ignore_errors: True  
+
+- name: swauth_cert
+  shell: cp /tmp/site-packages/swauth* /usr/lib/python2.7/site-packages/ -pR;chmod u+x /usr/local/bin/swauth-*
+  when: swift_unarchive is succeeded and swift_sitepackages_swauth is failed
+  register: swauth_cert
+
+- name: rsync_config
+  shell: cp /etc/rsyncd.conf /etc/rsyncd.conf.bak;cat /tmp/swift-config/rsyncd.conf > /etc/rsyncd.conf;systemctl enable rsyncd.service;systemctl restart rsyncd.service
+  when: swift_unarchive is succeeded and swauth_cert is succeeded
+  register: rsync_config
+
+- name: rsyslog_config
+  shell: cp /etc/rsyslog.d/openstack-swift.conf /etc/rsyslog.d/openstack-swift.conf.bak;cat /tmp/swift-config/swift-rsyslog.conf > /etc/rsyslog.d/openstack-swift.conf;systemctl enable rsyslog.service;systemctl restart rsyslog.service
+  when: swift_unarchive is succeeded and rsync_config is succeeded
+  register: rsyslog_config
+
+- name: /etc/logrotate.d/openstack-swift exists
+  file:
+    path: /etc/logrotate.d/openstack-swift
+    state: absent
+  register: openstack_swift
+  ignore_errors: True
+  when: rsyslog_config is succeeded
+
+- name: openstack-swift replace
+  shell: cp /tmp/swift-config/openstack-swift  /etc/logrotate.d/openstack-swift -f
+  when: openstack_swift is succeeded
+  register: openstack_swift_replace
+
+- name: swift_chown
+  shell: chown -R root:root /var/log/swift;chmod -R g+w /var/log/swift
+  register: swift_chown
+  when: openstack_swift_replace is succeeded
+
+- name: logrotate_config
+  shell: logrotate -d /etc/logrotate.d/openstack-swift;logrotate -vf /etc/logrotate.d/openstack-swift
+  register: logrotate_config
+  when: swift_chown is succeeded
+  ignore_errors: True
+
+- name: /etc/swift/orgconf rm 
+  file:
+    path: /etc/swift/orgconf
+    state: absent
+  register: swift_orgconf_rm
+
+- name: /etc/swift/orgconf mkdir
+  file:
+    path: /etc/swift/orgconf
+    state: directory
+    mode: '775'
+  when: swift_orgconf_rm is succeeded
+  register: swift_orgconf_mkdir
+
+- name: mv /etc/swift/*
+  shell: mv /etc/swift/*.conf /etc/swift/orgconf
+  register: swift_orgconf_mv
+  when: swift_orgconf_mkdir is succeeded
+
+- name: cp /tmp/swift-config/
+  shell: cp /tmp/swift-config/{{ item }}.conf /etc/swift/
+  with_items:
+  - account-server
+  - container-server
+  - container-sync-realms
+  - object-server
+  - proxy-server
+  - swift
+  - object-expirer
+  when: swift_orgconf_mv is succeeded
+  register: swift_config_cp
+
+- name: ring_cons rm
+  shell: rm -f /etc/swift/*.builder;rm -f /etc/swift/*.ring.gz
+  ignore_errors: True
+  when: swift_config_cp is succeeded
+  register: ring_cons_rm
+
+- name: ring_cons_builder
+  shell: cd /etc/swift/;swift-ring-builder account.builder create 10 2 1;swift-ring-builder container.builder create 10 2 1;swift-ring-builder object.builder create 10 2 1
+  register: ring_cons_builder
+  when: swift_roles == "swift1"
+
+- name: ring_cons
+  shell: cd /etc/swift/;swift-ring-builder account.builder add r1z1-{{ swift1_ip }}:6202/hdd01 20;swift-ring-builder account.builder add r1z1-{{ swift2_ip }}:6202/hdd01 20;swift-ring-builder container.builder add r1z1-{{ swift1_ip }}:6201/hdd01 20;swift-ring-builder container.builder add r1z1-{{ swift2_ip }}:6201/hdd01 20;swift-ring-builder object.builder add r1z1-{{ swift1_ip }}:6200/hdd01 20;swift-ring-builder object.builder add r1z1-{{ swift2_ip }}:6200/hdd01 20;swift-ring-builder account.builder rebalance;swift-ring-builder container.builder rebalance;swift-ring-builder object.builder rebalance
+  register: ring_cons
+  when: swift_roles == "swift1" and ring_cons_builder is succeeded
+
+- name: /tmp/backup-swift/ rm
+  file:
+    path: /tmp/backup-swift/
+    state: absent
+  register: ring_cons_backup_rm
+
+- name: /tmp/backup-swift/ mkdir
+  file:
+    path: /tmp/backup-swift/
+    state: directory
+    mode: '775'
+  when: ring_cons_backup_rm is succeeded
+  register: ring_cons_backup_mkdir
+
+- name: ring_cons_backup
+  shell: cp /etc/swift/*.builder /tmp/backup-swift/;cp /etc/swift/*.ring.gz /tmp/backup-swift/
+  register: ring_cons_backup
+  when: ring_cons_backup_mkdir is succeeded and swift_roles == "swift1"
+
+- name: ring_cons_fetch
+  fetch: src=/etc/swift/{{ item }} dest=/disk1/ flat=yes
+  with_items:
+  - account.ring.gz
+  - container.ring.gz
+  - object.ring.gz
+  when: ring_cons_backup is succeeded and swift_roles == "swift1"
+  register: ring_cons_fetch
+
+- name: ring_cons_copy
+  copy: src=/disk1/{{ item }} dest=/etc/swift/
+  with_items:
+  - account.ring.gz
+  - container.ring.gz
+  - object.ring.gz
+  when: ring_cons_fetch is succeeded and swift_roles == "swift2"
+  register: ring_cons_copy
+
+- name: chown root:swift
+  shell: chown -R root:swift {{ item }};chown -R swift:swift /var/cache/swift;chown -R root:root /var/log/swift
+  with_items:
+  - /etc/swift
+  - /srv/node
+  when: ring_cons_copy is succeeded
+  register: swift_chown_1
+
+- name: chown g+w
+  shell: chmod -R g+w {{ item }}
+  with_items:
+  - /etc/swift
+  - /srv/node
+  - /var/cache/swift
+  - /var/log/swift
+  when: swift_chown_1 is succeeded
+  register: swift_chown_2
+
+- name: swift.conf
+  shell: sed -i "/^swift_hash_path_suffix = /c\swift_hash_path_suffix = {{ base1 }}" /etc/swift/swift.conf;sed -i "/^swift_hash_path_prefix = /c\swift_hash_path_prefix = {{ base2 }}" /etc/swift/swift.conf
+  register: swift_conf
+  when: swift_chown_2 is succeeded
+
+- name: proxy_config
+  shell: sed -i "/^default_swift_cluster = /c\default_swift_cluster = production#http://{{ swift1_ip }}:8080/v1" /etc/swift/proxy-server.conf
+  register: proxy_config
+  when: swift_conf is succeeded
+  notify: handler swift
+

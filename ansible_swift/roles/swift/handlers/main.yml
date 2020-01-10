@@ -1,0 +1,150 @@
+---
+# handlers file for swift
+
+
+- name: systemctl enable
+  listen: handler swift
+  shell: systemctl enable {{ item }};systemctl restart {{ item }}
+  with_items:
+  - memcached.service
+  - openstack-swift-proxy.service
+  - openstack-swift-account.service
+  - openstack-swift-account-auditor.service
+  - openstack-swift-account-reaper.service
+  - openstack-swift-account-replicator.service
+  - openstack-swift-container.service
+  - openstack-swift-container-auditor.service 
+  - openstack-swift-container-replicator.service
+  - openstack-swift-container-updater.service
+  - openstack-swift-object.service
+  - openstack-swift-object-auditor.service
+  - openstack-swift-object-replicator.service
+  - openstack-swift-object-updater.service
+  - openstack-swift-object-expirer.service
+  register: systemctl_swift
+
+
+- name: user and passwd
+  listen: handler swift
+  shell: swauth-prep -K WjMOQTrQ;swauth-add-user -A http://{{ swift1_ip }}:8080/auth/ -K WjMOQTrQ -a xx xxxx xxxx;swauth-list -A http://{{ swift1_ip }}:8080/auth/ -K WjMOQTrQ msgc
+  register: swift_user_passwd
+  when: systemctl_swift is succeeded and swift_roles == "swift1"
+
+- name: show swift_gw_token
+  listen: handler swift
+  debug: var=swift_user_passwd verbosity=0
+
+- name: curl token print
+  listen: handler swift
+  shell: 'curl -v -H "X-Auth-User: xx:xxxx"    -H "X-Auth-Key: xxxx" http://{{ swift1_ip }}:8080/auth/v1.0'
+  register: swift_token_print
+  when: swift_user_passwd is succeeded and swift_roles == "swift1"
+
+- name: show swift_token_print
+  listen: handler swift
+  debug: var=swift_token_print verbosity=0
+
+- name: curl token
+  listen: handler swift
+  shell: 'curl -v -H "X-Auth-User: xx:xxxx"    -H "X-Auth-Key: xxxx" http://{{ swift1_ip }}:8080/auth/v1.0 &> /disk1/swift.txt'
+  register: swift_token
+  when: swift_user_passwd is succeeded and swift_roles == "swift1"
+
+- name: swift.sh
+  listen: handler swift
+  script: /disk1/ansible_roles/roles/swift/files/swift.sh
+  register: swift_sh
+  when: swift_token is succeeded and swift_roles == "swift1"
+
+# for storage-gateway
+
+- name: rm /iflytek/server/
+  listen: handler swift
+  file:
+    path: /iflytek/server/
+    state: absent
+  register: rm_mkdir
+  when: swift_sh is succeeded
+
+- name: mkdir /iflytek/server/
+  listen: handler swift
+  file:
+    path: /iflytek/server/
+    state: directory
+    mode: '775'
+  register: gw_mkdir
+  when: rm_mkdir is succeeded
+
+- name: unarchive
+  listen: handler swift
+  unarchive: src=storage-gateway.tar.gz dest=/iflytek/server/
+  register: unarchive
+  when: rm_mkdir is succeeded
+
+- name: template
+  listen: handler swift
+  when: unarchive is succeeded
+  template: src={{ item }} dest=/iflytek/server/storage-gateway/bin/
+  with_items:
+  - startup.sh
+  - shutdown.sh
+  register: template
+
+- name: configfile1
+  listen: handler swift
+  when: template is succeeded and swift_roles == "swift1"
+  template: src=swift1gw.properties dest=/iflytek/server/storage-gateway/
+  register: configfile1
+
+- name: rename1
+  listen: handler swift
+  shell: mv -f /iflytek/server/storage-gateway/swift1gw.properties /iflytek/server/storage-gateway/swiftgw.properties 
+  when: configfile1 is succeeded and swift_roles == "swift1"
+  register: rename1
+
+- name: configfile2
+  listen: handler swift
+  when: template is succeeded and swift_roles == "swift2"
+  template: src=swift2gw.properties dest=/iflytek/server/storage-gateway/
+  register: configfile2
+
+- name: rename2
+  listen: handler swift
+  shell: mv -f /iflytek/server/storage-gateway/swift2gw.properties /iflytek/server/storage-gateway/swiftgw.properties
+  when: configfile2 is succeeded and swift_roles == "swift2"
+  register: rename2
+
+- name: judge jps 
+  listen: handler swift
+  shell: jps -l |grep storage.gw.GatewayBootstrap
+  register: gw_jps
+  when: rename1 is succeeded and rename2 is succeeded
+  ignore_errors: True
+
+- name: sh gw
+  listen: handler swift
+  shell: cd /iflytek/server/storage-gateway/bin && ./startup.sh 9080
+  when: rename1 is succeeded and rename2 is succeeded and gw_jps is failed
+  register: swift_sh_gw
+
+- name: judge rclocal
+  listen: handler swift
+  shell: grep /iflytek/server/storage-gateway/bin /etc/rc.local
+  register: rclocal_judge
+  when: swift_sh_gw is succeeded
+
+- name: rclocal
+  listen: handler swift
+  shell: echo 'cd /iflytek/server/storage-gateway/bin && ./startup.sh 9080' >> /etc/rc.local
+  when: rclocal_judge is failed
+  register: rclocal
+
+- name: curl gw token
+  listen: handler swift
+  shell: 'curl -v -H "X-Auth-User: xx:xxxx"    -H "X-Auth-Key: xxxx" http://{{ swift1_ip }}:9080/auth/v1.0'
+  register: swift_gw_token
+  when: swift_sh_gw is succeeded and swift_roles == "swift1"
+
+- name: show swift_gw_token
+  listen: handler swift
+  debug: var=swift_gw_token verbosity=0

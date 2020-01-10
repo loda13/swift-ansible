@@ -1,0 +1,12 @@
+[swift]
+x.x.x.x swift_roles="swift1"
+x.x.x.x swift_roles="swift2"
+[swift:vars]
+swift1_ip=x.x.x.x
+swift2_ip=x.x.x.x
+base1=rRs+a7wDjHMsAWr6g0t0XrPtXZd5dDvqbuaq/FG52gc=
+base2=pIvXoRd+5WjWSIMTDRlqYz3kqMRc1v9/uTbKxV7IIcg=
+disk_type=/dev/vdc
+
+#base
+#base=head -c 32 /dev/random | base64
