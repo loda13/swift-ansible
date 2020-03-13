@@ -1,6 +1,6 @@
 #!/bin/bash
-Url=`grep "X-Storage-Url:" /disk1/swift.txt |awk '{print $3}'`
-Token=`grep "X-Auth-Token:" /disk1/swift.txt |awk '{print $3}'`
+Url=`grep "X-Storage-Url:" /tmp/swift.txt |awk '{print $3}'`
+Token=`grep "X-Auth-Token:" /tmp/swift.txt |awk '{print $3}'`
 acl="/ACLcontainer"
 doc="/docContainer"
 

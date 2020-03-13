@@ -23,10 +23,9 @@
   - openstack-swift-object-expirer.service
   register: systemctl_swift
 
-
 - name: user and passwd
   listen: handler swift
-  shell: swauth-prep -K WjMOQTrQ;swauth-add-user -A http://{{ swift1_ip }}:8080/auth/ -K WjMOQTrQ -a xx xxxx xxxx;swauth-list -A http://{{ swift1_ip }}:8080/auth/ -K WjMOQTrQ msgc
+  shell: swauth-prep -K WjMOQTrQ;swauth-add-user -A http://{{ swift1_ip }}:8080/auth/ -K WjMOQTrQ -a msgc msgcUser msgcPwd;swauth-list -A http://{{ swift1_ip }}:8080/auth/ -K WjMOQTrQ msgc
   register: swift_user_passwd
   when: systemctl_swift is succeeded and swift_roles == "swift1"
 
@@ -36,7 +35,7 @@
 
 - name: curl token print
   listen: handler swift
-  shell: 'curl -v -H "X-Auth-User: xx:xxxx"    -H "X-Auth-Key: xxxx" http://{{ swift1_ip }}:8080/auth/v1.0'
+  shell: 'curl -v -H "X-Auth-User: msgc:msgcUser"    -H "X-Auth-Key: msgcPwd" http://{{ swift1_ip }}:8080/auth/v1.0'
   register: swift_token_print
   when: swift_user_passwd is succeeded and swift_roles == "swift1"
 
@@ -46,7 +45,7 @@
 
 - name: curl token
   listen: handler swift
-  shell: 'curl -v -H "X-Auth-User: xx:xxxx"    -H "X-Auth-Key: xxxx" http://{{ swift1_ip }}:8080/auth/v1.0 &> /disk1/swift.txt'
+  shell: 'curl -v -H "X-Auth-User: msgc:msgcUser"    -H "X-Auth-Key: msgcPwd" http://{{ swift1_ip }}:8080/auth/v1.0 &> /tmp/swift.txt'
   register: swift_token
   when: swift_user_passwd is succeeded and swift_roles == "swift1"
 
@@ -129,9 +128,10 @@
 
 - name: judge rclocal
   listen: handler swift
-  shell: grep /iflytek/server/storage-gateway/bin /etc/rc.local
+  shell: grep '/iflytek/server/storage-gateway/bin' /etc/rc.local
   register: rclocal_judge
   when: swift_sh_gw is succeeded
+  ignore_errors: True
 
 - name: rclocal
   listen: handler swift
@@ -141,7 +141,7 @@
 
 - name: curl gw token
   listen: handler swift
-  shell: 'curl -v -H "X-Auth-User: xx:xxxx"    -H "X-Auth-Key: xxxx" http://{{ swift1_ip }}:9080/auth/v1.0'
+  shell: 'curl -v -H "X-Auth-User: msgc:msgcUser"    -H "X-Auth-Key: msgcPwd" http://{{ swift1_ip }}:9080/auth/v1.0'
   register: swift_gw_token
   when: swift_sh_gw is succeeded and swift_roles == "swift1"
 

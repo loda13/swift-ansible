@@ -145,7 +145,7 @@
 
 - name: /usr/local/bin/ exists
   stat:
-    path: /usr/local/bin/
+    path: /usr/local/bin/swauth-add-account
   register: swift_swauth
   when: swift_sitepackages is succeeded
   ignore_errors: True
@@ -155,7 +155,7 @@
   when: swift_swauth.stat.exists == False
 
 - name: /usr/lib/python2.7/site-packages/swauth* exists
-  shell: ls /usr/lib/python2.7/site-packages/swauth*
+  shell: ls -al /usr/lib/python2.7/site-packages/ | grep "^-" |grep swauth*
   register: swift_sitepackages_swauth
   ignore_errors: True  
 
