@@ -52,7 +52,7 @@
   ignore_errors: True
 
 - name: echo /etc/security/limits.conf
-  shell: echo '*        soft   nproc  65536\n* *        hard   nproc  65536\n* *        soft   nofile  655350\n* *        hard   nofile  655350\n*' >> /etc/security/limits.conf;ulimit -n 65536
+  shell: echo $'*        soft   nproc  65536\n*        hard   nproc  65536\n*        soft   nofile  655350\n*        hard   nofile  655350\n' >> /etc/security/limits.conf;ulimit -n 65536
   when: swift_limits is failed
 
 - name: judge /etc/locale.conf
