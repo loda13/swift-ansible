@@ -151,7 +151,7 @@
   ignore_errors: True
 
 - name: swauth_cert
-  shell: cp /tmp/swauth/bin/swauth-* /usr/local/bin/
+  shell: cp -f /tmp/swauth/bin/swauth-* /usr/local/bin/
   when: swift_swauth.stat.exists == False
 
 - name: /usr/lib/python2.7/site-packages/swauth* exists
