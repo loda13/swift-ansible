@@ -23,6 +23,7 @@
   - openstack-swift-object-expirer.service
   register: systemctl_swift
 
+
 - name: user and passwd
   listen: handler swift
   shell: swauth-prep -K WjMOQTrQ;swauth-add-user -A http://{{ swift1_ip }}:8080/auth/ -K WjMOQTrQ -a msgc msgcUser msgcPwd;swauth-list -A http://{{ swift1_ip }}:8080/auth/ -K WjMOQTrQ msgc
@@ -35,7 +36,8 @@
 
 - name: curl token print
   listen: handler swift
-  shell: 'curl -v -H "X-Auth-User: msgc:msgcUser"    -H "X-Auth-Key: msgcPwd" http://{{ swift1_ip }}:8080/auth/v1.0'
+  shell: 'curl -v -H "X-Auth-User: xxxx:xxxx"    -H "X-Auth-Key: xxxx"
+  http://{{ swift1_ip }}:8080/auth/v1.0'
   register: swift_token_print
   when: swift_user_passwd is succeeded and swift_roles == "swift1"
 
@@ -45,13 +47,14 @@
 
 - name: curl token
   listen: handler swift
-  shell: 'curl -v -H "X-Auth-User: msgc:msgcUser"    -H "X-Auth-Key: msgcPwd" http://{{ swift1_ip }}:8080/auth/v1.0 &> /tmp/swift.txt'
+  shell: 'curl -v -H "X-Auth-User: xxxx:xxxx"    -H "X-Auth-Key: xxxx"
+  http://{{ swift1_ip }}:8080/auth/v1.0 &> /disk1/swift.txt'
   register: swift_token
   when: swift_user_passwd is succeeded and swift_roles == "swift1"
 
 - name: swift.sh
   listen: handler swift
-  script: /disk1/ansible_roles/roles/swift/files/swift.sh
+  script: swift.sh
   register: swift_sh
   when: swift_token is succeeded and swift_roles == "swift1"
 
@@ -97,7 +100,7 @@
 
 - name: rename1
   listen: handler swift
-  shell: mv -f /iflytek/server/storage-gateway/swift1gw.properties /iflytek/server/storage-gateway/swiftgw.properties 
+  shell: mv -f /iflytek/server/storage-gateway/swift1gw.properties /iflytek/server/storage-gateway/swiftgw.properties
   when: configfile1 is succeeded and swift_roles == "swift1"
   register: rename1
 
@@ -113,7 +116,7 @@
   when: configfile2 is succeeded and swift_roles == "swift2"
   register: rename2
 
-- name: judge jps 
+- name: judge jps
   listen: handler swift
   shell: jps -l |grep storage.gw.GatewayBootstrap
   register: gw_jps
@@ -128,20 +131,21 @@
 
 - name: judge rclocal
   listen: handler swift
-  shell: grep '/iflytek/server/storage-gateway/bin' /etc/rc.local
+  shell: grep /iflytek/server/storage-gateway/bin /etc/rc.local
   register: rclocal_judge
   when: swift_sh_gw is succeeded
   ignore_errors: True
 
 - name: rclocal
   listen: handler swift
-  shell: echo 'cd /iflytek/server/storage-gateway/bin && ./startup.sh 9080' >> /etc/rc.local
+  shell: echo -e '\nsource /etc/profile\ncd /iflytek/server/storage-gateway/bin && ./startup.sh 9080\nsleep 6' >> /etc/rc.local
   when: rclocal_judge is failed
   register: rclocal
 
 - name: curl gw token
   listen: handler swift
-  shell: 'curl -v -H "X-Auth-User: msgc:msgcUser"    -H "X-Auth-Key: msgcPwd" http://{{ swift1_ip }}:9080/auth/v1.0'
+  shell: 'curl -v -H "X-Auth-User: xxxx:xxxx"    -H "X-Auth-Key: msgcPwd"
+  http://{{ swift1_ip }}:9080/auth/v1.0'
   register: swift_gw_token
   when: swift_sh_gw is succeeded and swift_roles == "swift1"
 

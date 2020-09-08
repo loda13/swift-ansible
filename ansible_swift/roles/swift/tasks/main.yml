@@ -52,7 +52,7 @@
   ignore_errors: True
 
 - name: echo /etc/security/limits.conf
-  shell: echo $'*        soft   nproc  65536\n*        hard   nproc  65536\n*        soft   nofile  655350\n*        hard   nofile  655350\n' >> /etc/security/limits.conf;ulimit -n 65536
+  shell: echo '*        soft   nproc  65536\n* *        hard   nproc  65536\n* *        soft   nofile  655350\n* *        hard   nofile  655350\n*' >> /etc/security/limits.conf;ulimit -n 65536
   when: swift_limits is failed
 
 - name: judge /etc/locale.conf
@@ -85,7 +85,7 @@
 
 - name: installyum
   yum: name={{ item }}
-  with_items: 
+  with_items:
   - xfsprogs
   - rsync
   - python-swiftclient
@@ -104,8 +104,8 @@
   shell: ls /usr/lib/python2.7/site-packages/enum*
   register: site_packages_enum
   ignore_errors: True
-  
-- name: rm /usr/lib/python2.7/site-packages/enum* 
+
+- name: rm /usr/lib/python2.7/site-packages/enum*
   shell: rm /usr/lib/python2.7/site-packages/enum* -rf
   when: site_packages_enum is succeeded
 
@@ -113,8 +113,8 @@
   shell: ls /usr/lib/python2.7/site-packages/six*
   register: site_packages_six
   ignore_errors: True
-  
-- name: rm /usr/lib/python2.7/site-packages/six* 
+
+- name: rm /usr/lib/python2.7/site-packages/six*
   shell: rm /usr/lib/python2.7/site-packages/six* -rf
   when: site_packages_six is succeeded
 
@@ -122,8 +122,8 @@
   shell: ls /usr/lib/python2.7/site-packages/eventlet*
   register: site_packages_eventlet
   ignore_errors: True
-  
-- name: rm /usr/lib/python2.7/site-packages/eventlet* 
+
+- name: rm /usr/lib/python2.7/site-packages/eventlet*
   shell: rm /usr/lib/python2.7/site-packages/eventlet* -rf
   when: site_packages_eventlet is succeeded
 
@@ -145,17 +145,16 @@
 
 - name: /usr/local/bin/ exists
   stat:
-    path: /usr/local/bin/swauth-add-account
+    path: /usr/local/bin/
   register: swift_swauth
   when: swift_sitepackages is succeeded
   ignore_errors: True
 
 - name: swauth_cert
   shell: cp -f /tmp/swauth/bin/swauth-* /usr/local/bin/
-  when: swift_swauth.stat.exists == False
 
 - name: /usr/lib/python2.7/site-packages/swauth* exists
-  shell: ls -al /usr/lib/python2.7/site-packages/ | grep "^-" |grep swauth*
+  shell: ls /usr/lib/python2.7/site-packages/swauth*
   register: swift_sitepackages_swauth
   ignore_errors: True  
 
